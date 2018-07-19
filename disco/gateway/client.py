@@ -62,6 +62,7 @@ class GatewayClient(LoggingClass):
         self.shutting_down = False
         self.replaying = False
         self.replayed_events = 0
+        self.missed_heartbeats = 0
 
         # Cached gateway URL
         self._cached_gateway_url = None
@@ -85,10 +86,18 @@ class GatewayClient(LoggingClass):
     def heartbeat_task(self, interval):
         while True:
             if not self._heartbeat_acknowledged:
-                self.log.warning('Received HEARTBEAT without HEARTBEAT_ACK, forcing a fresh reconnect')
-                self._heartbeat_acknowledged = True
-                self.ws.close(status=4000)
-                return
+                self.missed_heartbeats += 1
+                if self.missed_heartbeats < 3:
+                    self.log.warning('Received HEARTBEAT without HEARTBEAT_ACK')
+                else:
+                    self.log.warning('Received HEARTBEAT without HEARTBEAT_ACK, forcing a fresh reconnect')
+                    self._heartbeat_acknowledged = True
+                    self.ws.close(status=4000)
+                    return
+            else:
+                if self.missed_heartbeats != 0:
+                    self.log.warning('HEARTBEAT_ACK caught up')
+                self.missed_heartbeats = 0
 
             self._send(OPCode.HEARTBEAT, self.seq)
             self._heartbeat_acknowledged = False
