@@ -221,6 +221,8 @@ class MessageEmbed(SlottedModel):
         The color of the embed.
     footer : `MessageEmbedFooter`
         The footer of the embed.
+    image : `MessageEmbedImage`
+        The image of the embed.
     thumbnail : `MessageEmbedThumbnail`
         The thumbnail of the embed.
     video : `MessageEmbedVideo`
@@ -344,7 +346,7 @@ class Message(SlottedModel):
         IDs for roles mentioned within this message.
     embeds : list[`MessageEmbed`]
         Embeds for this message.
-    attachments : list[`MessageAttachment`]
+    attachments : dict[`MessageAttachment`]
         Attachments for this message.
     reactions : list[`MessageReaction`]
         Reactions for this message.
@@ -509,6 +511,22 @@ class Message(SlottedModel):
             self.id,
             emoji,
             user)
+
+    def delete_single_reaction(self, emoji):
+        """
+        Deletes all reactions of a single emoji from a message.
+        Parameters
+        ----------
+        emoji : `Emoji`|str
+            An emoji or string representing an emoji
+        """
+        if isinstance(emoji, Emoji):
+            emoji = emoji.to_string()
+
+        self.client.api.channels_messages_reactions_delete_emoji(
+            self.channel_id,
+            self.id,
+            emoji)
 
     def is_mentioned(self, entity):
         """

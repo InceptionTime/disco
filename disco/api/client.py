@@ -230,6 +230,9 @@ class APIClient(LoggingClass):
 
         self.http(route, obj)
 
+    def channels_messages_reactions_delete_emoji(self, channel, message, emoji):
+        self.http(Routes.CHANNELS_MESSAGES_REACTIONS_DELETE_EMOJI, dict(channel=channel, message=message, emoji=emoji))
+
     def channels_permissions_modify(self, channel, permission, allow, deny, typ, reason=None):
         self.http(Routes.CHANNELS_PERMISSIONS_MODIFY, dict(channel=channel, permission=permission), json={
             'allow': allow,
@@ -348,7 +351,7 @@ class APIClient(LoggingClass):
         self.http(
             Routes.GUILDS_MEMBERS_MODIFY,
             dict(guild=guild, member=member),
-            json=optional(**kwargs),
+            json=kwargs,
             headers=_reason_header(reason))
 
     def guilds_members_roles_add(self, guild, member, role, reason=None):
@@ -492,6 +495,10 @@ class APIClient(LoggingClass):
         users = User.create_hash(self.client, 'id', data['users'])
         webhooks = Webhook.create_hash(self.client, 'id', data['webhooks'])
         return AuditLogEntry.create_map(self.client, r.json()['audit_log_entries'], users, webhooks, guild_id=guild)
+
+    def users_get(self, user):
+        r = self.http(Routes.USERS_GET, dict(user=user))
+        return User.create(self.client, r.json())
 
     def users_me_get(self):
         return User.create(self.client, self.http(Routes.USERS_ME_GET).json())

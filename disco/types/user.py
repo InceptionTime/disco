@@ -22,16 +22,15 @@ class User(SlottedModel, with_equality('id'), with_hash('id')):
 
     presence = Field(None)
 
-    def get_avatar_url(self, fmt='webp', size=1024):
+    def get_avatar_url(self, fmt=None, size=1024):
         if not self.avatar:
             return 'https://cdn.discordapp.com/embed/avatars/{}.png'.format(self.default_avatar.value)
-
-        return 'https://cdn.discordapp.com/avatars/{}/{}.{}?size={}'.format(
-            self.id,
-            self.avatar,
-            fmt,
-            size,
-        )
+        if fmt is not None:
+            return 'https://cdn.discordapp.com/avatars/{}/{}.{}?size={}'.format(self.id, self.avatar, fmt, size)
+        if self.avatar.startswith('a_'):
+            return 'https://cdn.discordapp.com/avatars/{}/{}.gif?size={}'.format(self.id, self.avatar, size)
+        else:
+            return 'https://cdn.discordapp.com/avatars/{}/{}.webp?size={}'.format(self.id, self.avatar, size)
 
     @property
     def default_avatar(self):
@@ -44,6 +43,10 @@ class User(SlottedModel, with_equality('id'), with_hash('id')):
     @property
     def mention(self):
         return '<@{}>'.format(self.id)
+
+    @property
+    def mention_nickname(self):
+        return '<@!{}>'.format(self.id)
 
     def open_dm(self):
         return self.client.api.users_me_dms_create(self.id)

@@ -3,7 +3,6 @@ import warnings
 
 from holster.enum import Enum
 
-from disco.gateway.packets import OPCode
 from disco.api.http import APIException
 from disco.util.paginator import Paginator
 from disco.util.snowflake import to_snowflake
@@ -76,7 +75,7 @@ class GuildEmoji(Emoji):
 
     @property
     def url(self):
-        return 'https://discordapp.com/api/emojis/{}.{}'.format(self.id, 'gif' if self.animated else 'png')
+        return 'https://cdn.discordapp.com/emojis/{}.{}'.format(self.id, 'gif' if self.animated else 'png')
 
     @cached_property
     def guild(self):
@@ -223,6 +222,12 @@ class GuildMember(SlottedModel):
         else:
             self.client.api.guilds_members_modify(self.guild.id, self.user.id, nick=nickname or '', **kwargs)
 
+    def disconnect(self):
+        """
+        Disconnects the member from voice (if they are connected).
+        """
+        self.modify(channel_id=None)
+
     def modify(self, **kwargs):
         self.client.api.guilds_members_modify(self.guild.id, self.user.id, **kwargs)
 
@@ -277,9 +282,11 @@ class Guild(SlottedModel, Permissible):
     name : str
         Guild's name.
     icon : str
-        Guild's icon hash
+        Guild's icon image hash
     splash : str
         Guild's splash image hash
+    banner : str
+        Guild's banner image hash
     region : str
         Voice region.
     afk_timeout : int
@@ -311,6 +318,7 @@ class Guild(SlottedModel, Permissible):
     name = Field(text)
     icon = Field(text)
     splash = Field(text)
+    banner = Field(text)
     region = Field(text)
     afk_timeout = Field(int)
     embed_enabled = Field(bool)
@@ -325,8 +333,6 @@ class Guild(SlottedModel, Permissible):
     emojis = AutoDictField(GuildEmoji, 'id')
     voice_states = AutoDictField(VoiceState, 'session_id')
     member_count = Field(int)
-
-    synced = Field(bool, default=False)
 
     def __init__(self, *args, **kwargs):
         super(Guild, self).__init__(*args, **kwargs)
@@ -357,6 +363,7 @@ class Guild(SlottedModel, Permissible):
         if self.owner_id == member.id:
             return PermissionValue(Permissions.ADMINISTRATOR)
 
+        # Our value starts with the guilds default (@everyone) role permissions
         value = PermissionValue(self.roles.get(self.id).permissions)
 
         # Iterate over all roles the user has (plus the @everyone role)
@@ -423,16 +430,15 @@ class Guild(SlottedModel, Permissible):
 
         return self.client.api.guilds_roles_modify(self.id, to_snowflake(role), **kwargs)
 
-    def sync(self):
-        if self.synced:
-            return
+    def request_guild_members(self, query=None, limit=0):
+        self.client.gw.request_guild_members(self.id, query, limit)
 
-        self.synced = True
-        self.client.gw.send(OPCode.REQUEST_GUILD_MEMBERS, {
-            'guild_id': self.id,
-            'query': '',
-            'limit': 0,
-        })
+    def sync(self):
+        warnings.warn(
+            'Guild.sync has been deprecated in place of Guild.request_guild_members',
+            DeprecationWarning)
+
+        self.request_guild_members()
 
     def get_bans(self):
         return self.client.api.guilds_bans_list(self.id)
@@ -513,6 +519,12 @@ class Guild(SlottedModel, Permissible):
 
         return 'https://cdn.discordapp.com/splashes/{}/{}.{}?size={}'.format(self.id, self.splash, fmt, size)
 
+    def get_banner_url(self, fmt='webp', size=1024):
+        if not self.banner:
+            return ''
+
+        return 'https://cdn.discordapp.com/banners/{}/{}.{}?size={}'.format(self.id, self.banner, fmt, size)
+
     @property
     def icon_url(self):
         return self.get_icon_url()
@@ -520,6 +532,10 @@ class Guild(SlottedModel, Permissible):
     @property
     def splash_url(self):
         return self.get_splash_url()
+
+    @property
+    def banner_url(self):
+        return self.get_banner_url()
 
     @property
     def system_channel(self):

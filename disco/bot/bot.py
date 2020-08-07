@@ -7,10 +7,10 @@ import importlib
 
 from six.moves import reload_module
 from holster.threadlocal import ThreadLocal
-from gevent.wsgi import WSGIServer
+from gevent.pywsgi import WSGIServer
 
 from disco.types.guild import GuildMember
-from disco.bot.plugin import Plugin
+from disco.bot.plugin import find_loadable_plugins
 from disco.bot.command import CommandEvent, CommandLevels
 from disco.bot.storage import Storage
 from disco.util.config import Config
@@ -308,10 +308,9 @@ class Bot(LoggingClass):
                 if msg.guild:
                     member = msg.guild.get_member(self.client.state.me)
                     if member:
-                        # If nickname is set, filter both the normal and nick mentions
-                        if member.nick:
-                            content = content.replace(member.mention, '', 1)
+                        # Filter both the normal and nick mentions
                         content = content.replace(member.user.mention, '', 1)
+                        content = content.replace(member.user.mention_nickname, '', 1)
                 else:
                     content = content.replace(self.client.state.me.mention, '', 1)
             elif mention_everyone:
@@ -499,12 +498,10 @@ class Bot(LoggingClass):
         mod = importlib.import_module(path)
         loaded = False
 
-        for entry in map(lambda i: getattr(mod, i), dir(mod)):
-            if inspect.isclass(entry) and issubclass(entry, Plugin) and not entry == Plugin:
-                if getattr(entry, '_shallow', False) and Plugin in entry.__bases__:
-                    continue
-                loaded = True
-                self.add_plugin(entry, config)
+        plugins = find_loadable_plugins(mod)
+        for plugin in plugins:
+            loaded = True
+            self.add_plugin(plugin, config)
 
         if not loaded:
             raise Exception('Could not find any plugins to load within module {}'.format(path))

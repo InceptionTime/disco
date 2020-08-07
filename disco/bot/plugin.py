@@ -3,6 +3,7 @@ import types
 import gevent
 import inspect
 import weakref
+import warnings
 import functools
 
 from gevent.event import AsyncResult
@@ -12,10 +13,60 @@ from disco.util.logging import LoggingClass
 from disco.bot.command import Command, CommandError
 
 
+# Contains a list of classes which will be excluded when auto discovering plugins
+#  to load. This allows anyone to create subclasses of Plugin that act as a base
+#  plugin class within their project/bot.
+_plugin_base_classes = set()
+
+
+def register_plugin_base_class(cls):
+    """
+    This function registers the given class under an internal registry of plugin
+    base classes. This will cause the class passed to behave exactly like the
+    builtin `Plugin` class.
+
+    This is particularly useful if you wish to subclass `Plugin` to create a new
+    base class that other plugins in your project inherit from, but do not want
+    the automatic plugin loading to consider the class for loading.
+    """
+    if not inspect.isclass(cls):
+        raise TypeError('cls must be a class')
+
+    _plugin_base_classes.add(cls)
+    return cls
+
+
+def find_loadable_plugins(mod):
+    """
+    Generator which produces a list of loadable plugins given a Python module. This
+    function will exclude any plugins which are registered as a plugin base class
+    via the `register_plugin_base_class` function.
+    """
+    module_attributes = (getattr(mod, attr) for attr in dir(mod))
+    for modattr in module_attributes:
+        if not inspect.isclass(modattr):
+            continue
+
+        if not issubclass(modattr, Plugin):
+            continue
+
+        if modattr in _plugin_base_classes:
+            continue
+
+        if getattr(modattr, '_shallow', False) and Plugin in modattr.__bases__:
+            warnings.warn(
+                'Setting _shallow to avoid plugin loading has been deprecated, see `register_plugin_base_class`',
+                DeprecationWarning,
+            )
+            continue
+
+        yield modattr
+
+
 class BasePluginDeco(object):
     Prio = Priority
 
-    # TODO: dont smash class methods
+    # TODO: don't smash class methods
     @classmethod
     def add_meta_deco(cls, meta):
         def deco(f):
@@ -151,6 +202,7 @@ class PluginDeco(BasePluginDeco):
     parser = BasePluginDeco
 
 
+@register_plugin_base_class
 class Plugin(LoggingClass, PluginDeco):
     """
     A plugin is a set of listeners/commands which can be loaded/unloaded by a bot.
@@ -182,7 +234,7 @@ class Plugin(LoggingClass, PluginDeco):
         self.storage = bot.storage
         self.config = config
 
-        # General declartions
+        # General declarations
         self.listeners = []
         self.commands = []
         self.schedules = {}
@@ -379,7 +431,7 @@ class Plugin(LoggingClass, PluginDeco):
         """
         self.commands.append(Command(self, func, *args, **kwargs))
 
-    def register_schedule(self, func, interval, repeat=True, init=True):
+    def register_schedule(self, func, interval, repeat=True, init=True, kwargs=None):
         """
         Registers a function to be called repeatedly, waiting for an interval
         duration.
@@ -393,16 +445,21 @@ class Plugin(LoggingClass, PluginDeco):
         repeat : bool
             Whether this schedule is repeating (or one time).
         init : bool
-            Whether to run this schedule once immediatly, or wait for the first
+            Whether to run this schedule once immediately, or wait for the first
             scheduled iteration.
+        kwargs: dict
+            kwargs which will be passed to executed `func`
         """
+        if kwargs is None:
+            kwargs = {}
+
         def repeat_func():
             if init:
-                func()
+                func(**kwargs)
 
             while True:
                 gevent.sleep(interval)
-                func()
+                func(**kwargs)
                 if not repeat:
                     break
 

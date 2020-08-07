@@ -54,6 +54,8 @@ class Routes(object):
     CHANNELS_MESSAGES_REACTIONS_DELETE_ME = (HTTPMethod.DELETE, CHANNELS + '/messages/{message}/reactions/{emoji}/@me')
     CHANNELS_MESSAGES_REACTIONS_DELETE_USER = (HTTPMethod.DELETE,
                                                CHANNELS + '/messages/{message}/reactions/{emoji}/{user}')
+    CHANNELS_MESSAGES_REACTIONS_DELETE_EMOJI = (HTTPMethod.DELETE,
+                                                CHANNELS + '/messages/{message}/reactions/{emoji}')
     CHANNELS_PERMISSIONS_MODIFY = (HTTPMethod.PUT, CHANNELS + '/permissions/{permission}')
     CHANNELS_PERMISSIONS_DELETE = (HTTPMethod.DELETE, CHANNELS + '/permissions/{permission}')
     CHANNELS_INVITES_LIST = (HTTPMethod.GET, CHANNELS + '/invites')
@@ -187,7 +189,7 @@ class HTTPClient(LoggingClass):
     A simple HTTP client which wraps the requests library, adding support for
     Discords rate-limit headers, authorization, and request/response validation.
     """
-    BASE_URL = 'https://discordapp.com/api/v7'
+    BASE_URL = 'https://discord.com/api/v7'
     MAX_RETRIES = 5
 
     def __init__(self, token, after_request=None):

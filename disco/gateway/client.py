@@ -203,7 +203,7 @@ class GatewayClient(LoggingClass):
         if isinstance(error, KeyboardInterrupt):
             self.shutting_down = True
             self.ws_event.set()
-        raise Exception('WS recieved error: %s', error)
+        raise Exception('WS received error: {}'.format(error))
 
     def on_open(self):
         if self.zlib_stream_enabled:
@@ -272,3 +272,15 @@ class GatewayClient(LoggingClass):
     def run(self):
         gevent.spawn(self.connect_and_run)
         self.ws_event.wait()
+
+    def request_guild_members(self, guild_id_or_ids, query=None, limit=0):
+        """
+        Request a batch of Guild members from Discord. Generally this function
+        can be called when initially loading Guilds to fill the local member state.
+        """
+        self.send(OPCode.REQUEST_GUILD_MEMBERS, {
+            # This is simply unfortunate naming on the part of Discord...
+            'guild_id': guild_id_or_ids,
+            'query': query or '',
+            'limit': limit,
+        })
