@@ -39,7 +39,8 @@ class GatewayEvent(six.with_metaclass(GatewayEventMeta, Model)):
         """
         cls = EVENTS_MAP.get(data['t'])
         if not cls:
-            raise Exception('Could not find cls for {} ({})'.format(data['t'], data))
+            return None
+            #raise Exception('Could not find cls for {} ({})'.format(data['t'], data))
 
         return cls.create(data['d'], client)
 
