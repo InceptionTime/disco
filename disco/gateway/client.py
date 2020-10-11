@@ -114,6 +114,9 @@ class GatewayClient(LoggingClass):
             self.client.events.emit(obj.__class__.__name__, obj)
             if self.replaying:
                 self.replayed_events += 1
+    
+    def handle_heartbeat(self, interval):
+        self._send(OPCode.HEARTBEAT, self.seq)
 
     def handle_heartbeat_acknowledge(self, _):
         self.log.debug('Received HEARTBEAT_ACK')
