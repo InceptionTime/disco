@@ -99,7 +99,6 @@ class GatewayClient(LoggingClass):
                     self.log.warning('HEARTBEAT_ACK caught up')
                 self.missed_heartbeats = 0
 
-            self._send(OPCode.HEARTBEAT, self.seq)
             self._heartbeat_acknowledged = False
             gevent.sleep(interval / 1000)
 
