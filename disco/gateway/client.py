@@ -99,13 +99,11 @@ class GatewayClient(LoggingClass):
                 if self.missed_heartbeats != 0:
                     self.log.warning('HEARTBEAT_ACK caught up')
                 self.missed_heartbeats = 0
+            
+            gevent.sleep(interval / 1000)
 
             self._send(OPCode.HEARTBEAT, self.seq)
             self._heartbeat_acknowledged = False
-            
-            end = time.time() + (interval / 1000)
-            while time.time() < end:
-                gevent.sleep(end - time.time())
 
     def handle_dispatch(self, packet):
         obj = GatewayEvent.from_dispatch(self.client, packet)
@@ -134,7 +132,8 @@ class GatewayClient(LoggingClass):
 
     def handle_hello(self, packet):
         self.log.info('Received HELLO, starting heartbeater...')
-        self._heartbeat_task = gevent.spawn(self.heartbeat_task, packet['d']['heartbeat_interval'])
+        if self._heartbeat_task:
+            self._heartbeat_task = gevent.spawn(self.heartbeat_task, packet['d']['heartbeat_interval'])
 
     def on_ready(self, ready):
         self.log.info('Received READY')
@@ -248,6 +247,7 @@ class GatewayClient(LoggingClass):
         #  respawn it
         if self._heartbeat_task:
             self._heartbeat_task.kill()
+            self._heartbeat_task = None
 
         # If we're quitting, just break out of here
         if self.shutting_down:
