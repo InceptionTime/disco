@@ -269,7 +269,7 @@ class GatewayClient(LoggingClass):
 
         wait_time = self.reconnects * 5
         self.log.info('Will attempt to %s after %s seconds', 'resume' if self.session_id else 'reconnect', wait_time)
-        gevent.sleep(wait_time)
+        #gevent.sleep(wait_time)
 
         # Reconnect
         self.connect_and_run()
