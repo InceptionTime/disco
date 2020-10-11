@@ -2,6 +2,7 @@ import gevent
 import zlib
 import six
 import ssl
+import time
 
 from websocket import ABNF
 
@@ -99,8 +100,12 @@ class GatewayClient(LoggingClass):
                     self.log.warning('HEARTBEAT_ACK caught up')
                 self.missed_heartbeats = 0
 
+            self._send(OPCode.HEARTBEAT, self.seq)
             self._heartbeat_acknowledged = False
-            gevent.sleep(interval / 1000)
+            
+            end = time.time() + (interval / 1000)
+            while time.time() < end:
+                gevent.sleep(end - time.time())
 
     def handle_dispatch(self, packet):
         obj = GatewayEvent.from_dispatch(self.client, packet)
@@ -109,9 +114,6 @@ class GatewayClient(LoggingClass):
             self.client.events.emit(obj.__class__.__name__, obj)
             if self.replaying:
                 self.replayed_events += 1
-
-    def handle_heartbeat(self, _):
-        self._send(OPCode.HEARTBEAT, self.seq)
 
     def handle_heartbeat_acknowledge(self, _):
         self.log.debug('Received HEARTBEAT_ACK')
